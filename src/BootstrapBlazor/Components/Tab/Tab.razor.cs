@@ -115,6 +115,12 @@ public partial class Tab : IHandlerException
     public bool ShowFullScreen { get; set; }
 
     /// <summary>
+    /// Gets or sets whether show the full screen button on context menu. Default is true.
+    /// </summary>
+    [Parameter]
+    public bool ShowContextMenuFullScreen { get; set; } = true;
+
+    /// <summary>
     /// 关闭标签页回调方法
     /// </summary>
     /// <remarks>返回 false 时不关 <see cref="TabItem"/> 标签页</remarks>
@@ -167,7 +173,6 @@ public partial class Tab : IHandlerException
     /// 获得/设置 NotFound 标签文本 默认 null NET6.0/7.0 有效
     /// </summary>
     [Parameter]
-    [NotNull]
     public string? NotFoundTabText { get; set; }
 
     /// <summary>
@@ -205,21 +210,18 @@ public partial class Tab : IHandlerException
     /// 获得/设置 关闭当前 TabItem 菜单文本
     /// </summary>
     [Parameter]
-    [NotNull]
     public string? CloseCurrentTabText { get; set; }
 
     /// <summary>
     /// 获得/设置 关闭所有 TabItem 菜单文本
     /// </summary>
     [Parameter]
-    [NotNull]
     public string? CloseAllTabsText { get; set; }
 
     /// <summary>
     /// 获得/设置 关闭其他 TabItem 菜单文本
     /// </summary>
     [Parameter]
-    [NotNull]
     public string? CloseOtherTabsText { get; set; }
 
     /// <summary>
@@ -345,6 +347,78 @@ public partial class Tab : IHandlerException
     [Parameter]
     public Func<Task>? OnToolbarRefreshCallback { get; set; }
 
+    /// <summary>
+    /// Gets or sets the previous tab navigation link tooltip text. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? PrevTabNavLinkTooltipText { get; set; }
+
+    /// <summary>
+    /// Gets or sets the next tab navigation link tooltip text. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? NextTabNavLinkTooltipText { get; set; }
+
+    /// <summary>
+    /// Gets or sets the close tab navigation link tooltip text. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? CloseTabNavLinkTooltipText { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether enable tab context menu. Default is false.
+    /// </summary>
+    [Parameter]
+    public bool ShowContextMenu { get; set; }
+
+    /// <summary>
+    /// Gets or sets the template of before context menu. Default is null.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<Tab>? BeforeContextMenuTemplate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the template of context menu. Default is null.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<Tab>? ContextMenuTemplate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the icon of tab item context menu refresh button. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? ContextMenuRefreshIcon { get; set; }
+
+    /// <summary>
+    /// Gets or sets the icon of tab item context menu close button. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? ContextMenuCloseIcon { get; set; }
+
+    /// <summary>
+    /// Gets or sets the icon of tab item context menu close other button. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? ContextMenuCloseOtherIcon { get; set; }
+
+    /// <summary>
+    /// Gets or sets the icon of tab item context menu close all button. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? ContextMenuCloseAllIcon { get; set; }
+
+    /// <summary>
+    /// Gets or sets the icon of tab item context menu full screen button. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? ContextMenuFullScreenIcon { get; set; }
+
+    /// <summary>
+    /// Gets or sets before popup context menu callback. Default is null.
+    /// </summary>
+    [Parameter]
+    public Func<TabItem, Task<bool>>? OnBeforeShowContextMenu { get; set; }
+
     [CascadingParameter]
     private Layout? Layout { get; set; }
 
@@ -371,8 +445,11 @@ public partial class Tab : IHandlerException
     [Inject, NotNull]
     private DialogService? DialogService { get; set; }
 
-    [CascadingParameter]
-    private ContextMenuZone? ContextMenuZone { get; set; }
+    [Inject]
+    [NotNull]
+    private FullScreenService? FullScreenService { get; set; }
+
+    private ContextMenuZone? _contextMenuZone;
 
     private ConcurrentDictionary<TabItem, bool> LazyTabCache { get; } = new();
 
@@ -386,7 +463,7 @@ public partial class Tab : IHandlerException
 
     private readonly ConcurrentDictionary<TabItem, TabItemContent> _cache = [];
 
-    private bool IsPreventDefault => ContextMenuZone != null;
+    private bool IsPreventDefault => _contextMenuZone != null;
 
     /// <summary>
     /// <inheritdoc/>
@@ -415,12 +492,21 @@ public partial class Tab : IHandlerException
         NotFoundTabText ??= Localizer[nameof(NotFoundTabText)];
         RefreshToolbarTooltipText ??= Localizer[nameof(RefreshToolbarTooltipText)];
         FullscreenToolbarTooltipText ??= Localizer[nameof(FullscreenToolbarTooltipText)];
+        PrevTabNavLinkTooltipText ??= Localizer[nameof(PrevTabNavLinkTooltipText)];
+        NextTabNavLinkTooltipText ??= Localizer[nameof(NextTabNavLinkTooltipText)];
+        CloseTabNavLinkTooltipText ??= Localizer[nameof(CloseTabNavLinkTooltipText)];
 
         PreviousIcon ??= IconTheme.GetIconByKey(ComponentIcons.TabPreviousIcon);
         NextIcon ??= IconTheme.GetIconByKey(ComponentIcons.TabNextIcon);
         DropdownIcon ??= IconTheme.GetIconByKey(ComponentIcons.TabDropdownIcon);
         CloseIcon ??= IconTheme.GetIconByKey(ComponentIcons.TabCloseIcon);
         RefreshToolbarButtonIcon ??= IconTheme.GetIconByKey(ComponentIcons.TabRefreshButtonIcon);
+
+        ContextMenuRefreshIcon ??= IconTheme.GetIconByKey(ComponentIcons.TabContextMenuRefreshIcon);
+        ContextMenuCloseIcon ??= IconTheme.GetIconByKey(ComponentIcons.TabContextMenuCloseIcon);
+        ContextMenuCloseOtherIcon ??= IconTheme.GetIconByKey(ComponentIcons.TabContextMenuCloseOtherIcon);
+        ContextMenuCloseAllIcon ??= IconTheme.GetIconByKey(ComponentIcons.TabContextMenuCloseAllIcon);
+        ContextMenuFullScreenIcon ??= IconTheme.GetIconByKey(ComponentIcons.TabContextMenuFullScreenIcon);
 
         if (AdditionalAssemblies is null)
         {
@@ -873,9 +959,10 @@ public partial class Tab : IHandlerException
         {
             item.SetActive(false);
         }
-        if (TabItems.Any(i => i.IsActive) == false)
+        if (TabItems.Find(i => i.IsActive) == null)
         {
-            TabItems.FirstOrDefault(i => !i.IsDisabled)?.SetActive(true);
+            var tabItem = TabItems.Find(i => !i.IsDisabled);
+            tabItem?.SetActive(true);
         }
         StateHasChanged();
     }
@@ -946,7 +1033,7 @@ public partial class Tab : IHandlerException
         }
     }
 
-    private string? GetIdByTabItem(TabItem item) => ComponentIdGenerator.Generate(item);
+    private string GetIdByTabItem(TabItem item) => ComponentIdGenerator.Generate(item);
 
     private async Task OnRefreshAsync()
     {
@@ -973,6 +1060,63 @@ public partial class Tab : IHandlerException
         }
     }
 
+    private async Task OnRefresh(ContextMenuItem item, object? context)
+    {
+        if (context is TabItem tabItem)
+        {
+            await Refresh(tabItem);
+        }
+    }
+
+    private async Task OnClose(ContextMenuItem item, object? context)
+    {
+        if (context is TabItem tabItem)
+        {
+            await RemoveTab(tabItem);
+        }
+    }
+
+    private Task OnCloseOther(ContextMenuItem item, object? context)
+    {
+        if (context is TabItem tabItem)
+        {
+            ActiveTab(tabItem);
+        }
+        CloseOtherTabs();
+        return Task.CompletedTask;
+    }
+
+    private Task OnCloseAll(ContextMenuItem item, object? context)
+    {
+        CloseAllTabs();
+        return Task.CompletedTask;
+    }
+
+    private async Task OnFullScreen(ContextMenuItem item, object? context)
+    {
+        if (context is TabItem tabItem)
+        {
+            await FullScreenService.ToggleById(GetIdByTabItem(tabItem));
+        }
+    }
+
+    private async Task OnContextMenu(MouseEventArgs e, TabItem item)
+    {
+        if (_contextMenuZone != null)
+        {
+            var show = true;
+            if (OnBeforeShowContextMenu != null)
+            {
+                show = await OnBeforeShowContextMenu(item);
+            }
+
+            if (show)
+            {
+                await _contextMenuZone.OnContextMenu(e, item);
+            }
+        }
+    }
+
     /// <summary>
     /// <inheritdoc/>
     /// </summary>
@@ -984,14 +1128,6 @@ public partial class Tab : IHandlerException
         {
             RemoveLocationChanged();
             ErrorLogger?.UnRegister(this);
-        }
-    }
-
-    private async Task OnContextMenu(MouseEventArgs e, TabItem item)
-    {
-        if (ContextMenuZone != null)
-        {
-            await ContextMenuZone.OnContextMenu(e, item);
         }
     }
 }

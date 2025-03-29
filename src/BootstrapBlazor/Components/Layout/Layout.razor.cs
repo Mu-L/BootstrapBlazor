@@ -297,6 +297,54 @@ public partial class Layout : IHandlerException
     [Parameter]
     public string NotAuthorizeUrl { get; set; } = "/Account/Login";
 
+    /// <summary>
+    /// Gets or sets whether enable tab context menu. Default is false.
+    /// </summary>
+    [Parameter]
+    public bool ShowTabContextMenu { get; set; }
+
+    /// <summary>
+    /// Gets or sets the template of before tab context menu. Default is null.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<Tab>? BeforeTabContextMenuTemplate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the template of tab context menu. Default is null.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<Tab>? TabContextMenuTemplate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the icon of tab item context menu refresh button. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? TabContextMenuRefreshIcon { get; set; }
+
+    /// <summary>
+    /// Gets or sets the icon of tab item context menu close button. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? TabContextMenuCloseIcon { get; set; }
+
+    /// <summary>
+    /// Gets or sets the icon of tab item context menu close other button. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? TabContextMenuCloseOtherIcon { get; set; }
+
+    /// <summary>
+    /// Gets or sets the icon of tab item context menu close all button. Default is null.
+    /// </summary>
+    [Parameter]
+    public string? TabContextMenuCloseAllIcon { get; set; }
+
+    /// <summary>
+    /// Gets or sets before popup context menu callback. Default is null.
+    /// </summary>
+    [Parameter]
+    public Func<TabItem, Task<bool>>? OnBeforeShowContextMenu { get; set; }
+
     [Inject]
     [NotNull]
     private NavigationManager? Navigation { get; set; }
@@ -404,7 +452,8 @@ public partial class Layout : IHandlerException
     [NotNull]
     private IStringLocalizer<Layout>? Localizer { get; set; }
 
-    private bool _init { get; set; }
+    private bool _init;
+    private Tab _tab = default!;
 
     /// <summary>
     /// <inheritdoc/>
